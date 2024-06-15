@@ -2,14 +2,18 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import pandas as pd
 import joblib
+import os
 
-# Carregar o modelo e o label encoder
-model = joblib.load('model.pkl')
-label_encoder = joblib.load('label_encoder.pkl')
+# Load the model and the label encoder using environment variables
+model_path = os.getenv('MODEL_PATH', 'model.pkl')
+label_encoder_path = os.getenv('LABEL_ENCODER_PATH', 'label_encoder.pkl')
+
+model = joblib.load(model_path)
+label_encoder = joblib.load(label_encoder_path)
 
 app = FastAPI()
 
-# Classe para definir a estrutura dos dados de entrada
+# Define the input data structure
 class PumpData(BaseModel):
     soilMoisture: int
     temperature: int
@@ -18,20 +22,19 @@ class PumpData(BaseModel):
 @app.post("/predict")
 def predict(data: PumpData):
     try:
-        # Criar um DataFrame com os dados de entrada
+        # Create a DataFrame with the input data
         input_data = pd.DataFrame({
             'soilMoisture': [data.soilMoisture],
             'temperature': [data.temperature],
             'airMoisture': [data.airMoisture]
         })
 
-        # Fazer a previsão
+        # Make a prediction
         prediction = model.predict(input_data)
 
-        # Converter a previsão para 'yes' ou 'no'
+        # Convert the prediction to 'yes' or 'no'
         result = label_encoder.inverse_transform(prediction)
 
         return {"activatePump": result[0]}
-
-
-
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
